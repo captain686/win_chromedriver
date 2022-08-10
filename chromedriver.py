@@ -31,8 +31,6 @@ def getChromeVersion():
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                              r'Software\Google\Chrome\BLBeacon')
         version, type = winreg.QueryValueEx(key, 'version')
-        version_re = re.compile(r'^[1-9]\d*\.\d*.\d*')  # 匹配前3位版本号的正则表达式
-
         print('Current Chrome Version: {}'.format(version))  # 这步打印会在命令行窗口显示
         return version
     except WindowsError as e:
@@ -65,14 +63,21 @@ def install(paths):
 def version_similar(version, prefixe):
     return difflib.SequenceMatcher(None, version, prefixe).quick_ratio()
 
-def getPrefix(version):
+def getPrefix(version:str):
+    version_last = version.split(".")[-1]
+    version_big = version.replace(f".{version_last}","")
     response = requests.get("https://chromedriver.storage.googleapis.com/?delimiter=/&prefix=")
     if response.status_code == 200:
         html = response.text
-        prefixes = re.findall("<CommonPrefixes><Prefix>(.*?)/</Prefix></CommonPrefixes>",html)
+        prefixes = re.findall(f"<CommonPrefixes><Prefix>({version_big}.*?)/</Prefix></CommonPrefixes>",html)
+        dif = 99
         for prefixe in prefixes:
-            if version_similar(version, prefixe) > 0.83:
-                return prefixe
+            little = prefixe.split(".")[-1]
+            new_dif = int(version_last) - int(little)
+            if new_dif < dif:
+                dif = new_dif
+                version = version.replace(f"{version_last}", little)
+        return version        
     else:
         return ""
 
@@ -114,7 +119,7 @@ def check():
     option = webdriver.ChromeOptions()
     option.add_experimental_option("excludeSwitches", ['enable-automation', 'enable-logging'])
     driver = webdriver.Chrome(options=option)
-    driver.get('http://www.baidu.com')
+    driver.get('https://ipinfo.io/')
     time.sleep(2)
     driver.close()
     driver.quit()
@@ -128,4 +133,3 @@ if __name__ == "__main__":
         install(paths)
     else:
         print("输入错误")
-    
